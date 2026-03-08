@@ -1,81 +1,91 @@
 const instance = document.getElementById("instance");
-const apiKey = document.getElementById("apiKey")
-const defSourceLg = document.getElementById("defSourceLg");
+const apiKey = document.getElementById("apiKey");
 const defTargetLg = document.getElementById("defTargetLg");
-const heightSlider = document.getElementById("heightSlider");
-const heightSliderValue = document.getElementById("heightSliderValue");
-const widthSlider = document.getElementById("widthSlider");
-const widthSliderValue = document.getElementById("widthSliderValue");
-const fontSizeSlider = document.getElementById("fontSizeSlider");
-const fontSizeSliderValue = document.getElementById("fontSizeSliderValue");
-const previewTextArea = document.getElementById("previewTextArea");
+const tooltipFontSize = document.getElementById("tooltipFontSize");
+const tooltipFontSizeValue = document.getElementById("tooltipFontSizeValue");
+const tooltipMaxWidth = document.getElementById("tooltipMaxWidth");
+const tooltipMaxWidthValue = document.getElementById("tooltipMaxWidthValue");
+const tooltipOpacity = document.getElementById("tooltipOpacity");
+const tooltipOpacityValue = document.getElementById("tooltipOpacityValue");
+const tooltipDuration = document.getElementById("tooltipDuration");
+const tooltipDurationValue = document.getElementById("tooltipDurationValue");
+const tooltipPreview = document.getElementById("tooltipPreview");
 const saveBtn = document.getElementById("saveBtn");
 
-document.addEventListener("DOMContentLoaded", async () => {
-    const storage = await chrome.storage.local.get({
-        instance: "https://ltranslate.blablalinux.be",
-        apiKey: "",
-        sourceLg: 'auto',
-        targetLg: 'fr',
-        textareaHeight: 140,
-        textareaWidth: 500,
-        fontSize: 16
-    });
+// Varsayılan ayarlar
+const defaults = {
+    apiUrl: "https://libretranslate.com",
+    apiKey: "",
+    targetLang: "tr",
+    tooltipFontSize: 14,
+    tooltipMaxWidth: 300,
+    tooltipOpacity: 90,
+    tooltipDuration: 10
+};
 
-    instance.value = storage.instance;
+// Ayarları yükle
+document.addEventListener("DOMContentLoaded", async () => {
+    const storage = await chrome.storage.local.get(defaults);
+
+    instance.value = storage.apiUrl;
     apiKey.value = storage.apiKey;
-    defSourceLg.value = storage.sourceLg;
-    defTargetLg.value = storage.targetLg;
-    heightSlider.value = storage.textareaHeight;
-    heightSliderValue.textContent = storage.textareaHeight;
-    widthSlider.value = storage.textareaWidth;
-    widthSliderValue.textContent = storage.textareaWidth;
-    fontSizeSlider.value = storage.fontSize;
-    fontSizeSliderValue.textContent = storage.fontSize;
-    previewTextArea.style.height = storage.textareaHeight + "px";
-    previewTextArea.style.minHeight = storage.textareaHeight + "px";
-    previewTextArea.style.width = storage.textareaWidth + "px";
-    previewTextArea.style.minWidth = storage.textareaWidth + "px";
-    previewTextArea.style.fontSize = storage.fontSize + "px";
+    defTargetLg.value = storage.targetLang;
+    tooltipFontSize.value = storage.tooltipFontSize;
+    tooltipMaxWidth.value = storage.tooltipMaxWidth;
+    tooltipOpacity.value = storage.tooltipOpacity;
+    tooltipDuration.value = storage.tooltipDuration;
+
+    updatePreview();
 });
 
+// Preview'i güncelle
+function updatePreview() {
+    const fontSize = tooltipFontSize.value;
+    const maxWidth = tooltipMaxWidth.value;
+    const opacity = tooltipOpacity.value / 100;
+
+    tooltipPreview.style.fontSize = fontSize + "px";
+    tooltipPreview.style.maxWidth = maxWidth + "px";
+    tooltipPreview.style.background = `rgba(0, 0, 0, ${opacity})`;
+
+    tooltipFontSizeValue.textContent = fontSize;
+    tooltipMaxWidthValue.textContent = maxWidth;
+    tooltipOpacityValue.textContent = tooltipOpacity.value;
+    tooltipDurationValue.textContent = tooltipDuration.value;
+}
+
+// Slider değişikliklerini dinle
+tooltipFontSize.addEventListener("input", updatePreview);
+tooltipMaxWidth.addEventListener("input", updatePreview);
+tooltipOpacity.addEventListener("input", updatePreview);
+tooltipDuration.addEventListener("input", updatePreview);
+
+// Formu kaydet
 document.getElementById("settings").addEventListener("submit", async (e) => {
     e.preventDefault();
 
     if (!instance.value.length) {
-        alert("Please fill out all fields!");
-    } else {
-        await chrome.storage.local.set({
-            instance: instance.value,
-            apiKey: apiKey.value,
-            sourceLg: defSourceLg.value,
-            targetLg: defTargetLg.value,
-            textareaHeight: heightSlider.value,
-            textareaWidth: widthSlider.value,
-            fontSize: fontSizeSlider.value
-        });
-        saveBtn.disabled = true;
-        saveBtn.innerText = "Saved!";
-        setTimeout(() => {
-            saveBtn.disabled = false;
-            saveBtn.innerText = "Save";
-        }, 3000);
+        alert("Lütfen API adresini girin!");
+        return;
     }
-})
 
-heightSlider.addEventListener("input", () => {
-    previewTextArea.style.height = heightSlider.value + "px";
-    previewTextArea.style.minHeight = heightSlider.value + "px";
-    heightSliderValue.textContent = heightSlider.value;
-})
+    await chrome.storage.local.set({
+        apiUrl: instance.value,
+        apiKey: apiKey.value,
+        targetLang: defTargetLg.value,
+        tooltipFontSize: parseInt(tooltipFontSize.value),
+        tooltipMaxWidth: parseInt(tooltipMaxWidth.value),
+        tooltipOpacity: parseInt(tooltipOpacity.value),
+        tooltipDuration: parseInt(tooltipDuration.value)
+    });
 
-widthSlider.addEventListener("input", () => {
-    previewTextArea.style.width = widthSlider.value + "px";
-    previewTextArea.style.minWidth = widthSlider.value + "px";
-    widthSliderValue.textContent = widthSlider.value;
-})
-
-fontSizeSlider.addEventListener("input", () => {
-    previewTextArea.style.fontSize = fontSizeSlider.value + "px";
-    fontSizeSliderValue.textContent = fontSizeSlider.value;
-})
+    saveBtn.disabled = true;
+    saveBtn.textContent = "✓ Kaydedildi!";
+    saveBtn.style.background = "#4CAF50";
+    
+    setTimeout(() => {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Kaydet";
+        saveBtn.style.background = "#4CAF50";
+    }, 2000);
+});
