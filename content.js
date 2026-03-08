@@ -292,6 +292,196 @@ document.addEventListener('mousedown', (e) => {
     }
 });
 
+// Select option hover çevirisi
+let hoverTimeout = null;
+let lastHoveredOption = null;
+let selectTooltipActive = false;
+let currentSelect = null;
+
+// Select elementlerine hover listener ekle
+function setupSelectHover(selectElement) {
+    if (selectElement.dataset.ltHoverSetup) return;
+    selectElement.dataset.ltHoverSetup = 'true';
+    
+    // Select açıldığında (focus)
+    selectElement.addEventListener('focus', () => {
+        selectTooltipActive = true;
+        currentSelect = selectElement;
+        console.log('LibreTranslate: Select focused');
+    });
+    
+    // Select kapandığında (blur)
+    selectElement.addEventListener('blur', () => {
+        selectTooltipActive = false;
+        currentSelect = null;
+        lastHoveredOption = null;
+        hideTooltip();
+        if (hoverTimeout) {
+            clearTimeout(hoverTimeout);
+        }
+        console.log('LibreTranslate: Select blurred');
+    });
+    
+    // Klavye ile gezinirken (arrow keys)
+    selectElement.addEventListener('keydown', async (e) => {
+        if (!selectTooltipActive) return;
+        
+        // Arrow up/down tuşları
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            if (hoverTimeout) {
+                clearTimeout(hoverTimeout);
+            }
+            
+            hoverTimeout = setTimeout(async () => {
+                const selectedOption = selectElement.options[selectElement.selectedIndex];
+                if (!selectedOption) return;
+                
+                const optionText = selectedOption.textContent.trim();
+                if (!optionText || optionText.length < 2) return;
+                
+                if (lastHoveredOption === optionText) return;
+                lastHoveredOption = optionText;
+                
+                const rect = selectElement.getBoundingClientRect();
+                const mouseX = rect.right + 10;
+                const mouseY = rect.top + (rect.height / 2);
+                
+                showTooltip('⏳', mouseX, mouseY);
+                console.log('LibreTranslate: Translating option:', optionText);
+                
+                const translated = await translateText(optionText);
+                
+                if (translated && translated !== optionText) {
+                    showTooltip(translated, mouseX, mouseY);
+                } else {
+                    hideTooltip();
+                }
+            }, 100);
+        }
+    });
+    
+    // Mouse ile tıklayınca
+    selectElement.addEventListener('click', async (e) => {
+        selectTooltipActive = true;
+        currentSelect = selectElement;
+        
+        // Biraz bekle ki option seçilsin
+        setTimeout(async () => {
+            const selectedOption = selectElement.options[selectElement.selectedIndex];
+            if (!selectedOption) return;
+            
+            const optionText = selectedOption.textContent.trim();
+            if (!optionText || optionText.length < 2) return;
+            
+            const rect = selectElement.getBoundingClientRect();
+            const mouseX = rect.right + 10;
+            const mouseY = rect.top + (rect.height / 2);
+            
+            showTooltip('⏳', mouseX, mouseY);
+            console.log('LibreTranslate: Translating clicked option:', optionText);
+            
+            const translated = await translateText(optionText);
+            
+            if (translated && translated !== optionText) {
+                showTooltip(translated, mouseX, mouseY);
+                // 3 saniye sonra gizle
+                setTimeout(hideTooltip, 3000);
+            } else {
+                hideTooltip();
+            }
+        }, 100);
+    });
+    
+    // Mouse ile option üzerine gelince (Chrome/Edge'de çalışır)
+    selectElement.addEventListener('mouseenter', () => {
+        selectTooltipActive = true;
+        currentSelect = selectElement;
+    });
+    
+    selectElement.addEventListener('mousemove', async (e) => {
+        if (!selectTooltipActive) return;
+        
+        // Option elementine hover yapılıyorsa
+        const target = document.elementFromPoint(e.clientX, e.clientY);
+        if (target && target.tagName === 'OPTION') {
+            const optionText = target.textContent.trim();
+            
+            if (lastHoveredOption === optionText || !optionText || optionText.length < 2) {
+                return;
+            }
+            
+            lastHoveredOption = optionText;
+            
+            if (hoverTimeout) {
+                clearTimeout(hoverTimeout);
+            }
+            
+            hoverTimeout = setTimeout(async () => {
+                const rect = selectElement.getBoundingClientRect();
+                const mouseX = rect.right + 10;
+                const mouseY = e.clientY;
+                
+                showTooltip('⏳', mouseX, mouseY);
+                console.log('LibreTranslate: Translating hovered option:', optionText);
+                
+                const translated = await translateText(optionText);
+                
+                if (translated && translated !== optionText) {
+                    showTooltip(translated, mouseX, mouseY);
+                } else {
+                    hideTooltip();
+                }
+            }, 150);
+        }
+    });
+    
+    selectElement.addEventListener('mouseleave', () => {
+        if (hoverTimeout) {
+            clearTimeout(hoverTimeout);
+        }
+        lastHoveredOption = null;
+    });
+}
+
+// Tüm select elementlerini bul ve setup yap
+function initSelectHovers() {
+    const selects = document.querySelectorAll('select');
+    console.log('LibreTranslate: Found', selects.length, 'select elements');
+    selects.forEach(setupSelectHover);
+}
+
+// Sayfa yüklendiğinde
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSelectHovers);
+} else {
+    initSelectHovers();
+}
+
+// Dinamik olarak eklenen select'ler için MutationObserver
+const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === 1) {
+                if (node.tagName === 'SELECT') {
+                    setupSelectHover(node);
+                    console.log('LibreTranslate: New select element detected');
+                } else if (node.querySelectorAll) {
+                    const selects = node.querySelectorAll('select');
+                    if (selects.length > 0) {
+                        console.log('LibreTranslate: Found', selects.length, 'new select elements');
+                        selects.forEach(setupSelectHover);
+                    }
+                }
+            }
+        });
+    });
+});
+
+observer.observe(document.body, {
+    childList: true,
+    subtree: true
+});
+
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     
     if (request === "getSelection") {
