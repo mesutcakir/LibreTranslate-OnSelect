@@ -1,0 +1,8 @@
+{
+  "manifest_description": {
+    "message": "LibreTranslate API kullanarak metinleri çevirin"
+  },
+  "manifest_command_translateSelection": {
+    "message": "Seçili metni çevir"
+  }
+}
